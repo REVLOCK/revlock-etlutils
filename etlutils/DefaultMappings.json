@@ -1,0 +1,51 @@
+{
+  "OrderDetails": [
+    "Account ID",
+    "Order Number",
+    "Order Item Number",
+    "Product Id",
+    "Product Code",
+    "Order Start Date",
+    "Quantity",
+    "List Price",
+    "Unit Price",
+    "Service Start Date",
+    "Service End Date",
+    "Account Owner",
+    "Product Family",
+    "Order Name",
+    "Activation Date",
+    "Expiration Date",
+    "Training Date",
+    "Shipping Date",
+    "Opportunity Id",
+    "Sync Source"
+  ],
+  "Customer": [
+    "Account ID",
+    "Customer Name",
+    "Customer Address",
+    "Customer Phone",
+    "Sync Source",
+    "State",
+    "Customer Type",
+    "Tier"
+  ],
+  "SalesPerson": [
+    "Sales Person Id",
+    "Sales Person Name",
+    "Sync Source"
+  ],
+  "Product": [
+    "Product Id",
+    "Product Code",
+    "Product Name",
+    "Product Family",
+    "Description",
+    "List Price",
+    "Pricebook Id",
+    "Product Type",
+    "Term",
+    "Sync Source"
+  ]
+}
