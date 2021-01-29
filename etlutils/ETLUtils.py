@@ -702,11 +702,15 @@ class ETLUtils:
         return diff;
 
     def establish_directories(global_vars):
-        ROOT_DIR = global_vars.get("ROOT_DIR", "/home/etl")
-        base_input_dir = global_vars.get("base_input_dir", f"{ROOT_DIR}/sync-output")
-        output_dir = global_vars.get("output_dir", f"{ROOT_DIR}/etl-output")
-        snapshot_dir = global_vars.get("snapshot_dir", f"{ROOT_DIR}/snapshots")
-        today = global_vars.get("today", None)
+
+       def get_var(var_name, default_value):
+            return os.getenv(var_name, get_var(var_name, default_value))
+
+        ROOT_DIR = get_var("ROOT_DIR", "/home/etl")
+        base_input_dir = get_var("base_input_dir", f"{ROOT_DIR}/sync-output")
+        output_dir = get_var("output_dir", f"{ROOT_DIR}/etl-output")
+        snapshot_dir = get_var("snapshot_dir", f"{ROOT_DIR}/snapshots")
+        today = get_var("today", None)
 
         if today is None:
             today = datetime.date.today()
