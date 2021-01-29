@@ -703,7 +703,7 @@ class ETLUtils:
 
     def establish_directories(global_vars):
 
-       def get_var(var_name, default_value):
+        def get_var(var_name, default_value):
             return os.getenv(var_name, get_var(var_name, default_value))
 
         ROOT_DIR = get_var("ROOT_DIR", "/home/etl")
