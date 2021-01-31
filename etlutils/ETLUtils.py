@@ -704,7 +704,7 @@ class ETLUtils:
     def establish_directories(global_vars):
 
         def get_var(var_name, default_value):
-            return os.getenv(var_name, get_var(var_name, default_value))
+            return os.getenv(var_name, global_vars.get(var_name, default_value))
 
         ROOT_DIR = get_var("ROOT_DIR", "/home/etl")
         base_input_dir = get_var("base_input_dir", f"{ROOT_DIR}/sync-output")
