@@ -701,6 +701,7 @@ class ETLUtils:
 
         return diff;
 
+
     def establish_directories(global_vars, additional_params = []):
 
         def get_var(var_name, default_value):
@@ -729,6 +730,17 @@ class ETLUtils:
         with suppress(FileExistsError):
             os.makedirs(parameters["snapshot_dir"])
 
+        # Establis config.json path.
+        config_json=f"{ROOT_DIR}/config.json"
+
+        if not path.exists(config_json):
+            config_json=f"{snapshot_dir}/config.json"
+
+        if not path.exists(config_json):
+            config_json=None
+
+        parameters['config_json'] = config_json
+
         to_return = [
             parameters["base_input_dir"], 
             parameters["output_dir"], 
@@ -741,27 +753,21 @@ class ETLUtils:
             
         return tuple(to_return)
 
-    def load_config_json(config_vars):
-        config_json=f"{ROOT_DIR}/config.json"
+    def load_config_json(config_json, config_vars):
 
-        keys = config_vars.keys()
+        if config_json is None:
+            return tuple(config_vars.values())
 
-        if not path.exists(config_json):
-            config_json=f"{snapshot_dir}/config.json"
+        print(f"Loading config.json file from {config_json}.")
+        with open(config_json) as f:
+            config_json_data = json.load(f)  
 
-        if path.exists(config_json):
-            print(f"config.json found at location {config_json}.")
-            with open(config_json) as f:
-                config_json_data = json.load(f)  
-
-            toReturn = []
-            for variable in keys:
-                if variable in config_json_data:
-                    toReturn.append(config_json_data[variable])
-                else:
-                    toReturn.append(config_vars[variable])
-        else:
-            print(f"config.json is not found.")
+        toReturn = []
+        for variable in config_vars.keys():
+            if variable in config_json_data:
+                toReturn.append(config_json_data[variable])
+            else:
+                toReturn.append(config_vars[variable])
 
         return tuple(toReturn)
         
