@@ -701,33 +701,68 @@ class ETLUtils:
 
         return diff;
 
-    def establish_directories(global_vars):
+    def establish_directories(global_vars, additional_params = []):
 
         def get_var(var_name, default_value):
             return os.getenv(var_name, global_vars.get(var_name, default_value))
 
-        ROOT_DIR = get_var("ROOT_DIR", "/home/etl")
-        base_input_dir = get_var("base_input_dir", f"{ROOT_DIR}/sync-output")
-        output_dir = get_var("output_dir", f"{ROOT_DIR}/etl-output")
-        snapshot_dir = get_var("snapshot_dir", f"{ROOT_DIR}/snapshots")
-        today = get_var("today", None)
+        ROOT_DIR=get_var("ROOT_DIR", "/home/etl")
+        parameters = {
+            "ROOT_DIR": ROOT_DIR,
+            "base_input_dir": get_var("base_input_dir", f"{ROOT_DIR}/sync-output"),
+            "output_dir": get_var("output_dir", f"{ROOT_DIR}/etl-output"),
+            "snapshot_dir": get_var("snapshot_dir", f"{ROOT_DIR}/snapshots"),
+            "today": get_var("today", None)
+        } 
 
-        if today is None:
-            today = datetime.date.today()
+        if parameters["today"] is None:
+            parameters["today"] = datetime.date.today()
         else:
-            today = datetime.datetime.strptime(today, '%Y%m%d')
+            parameters["today"] = datetime.datetime.strptime(today, '%Y%m%d')
 
-        print(f"ROOT_DIR is {ROOT_DIR}")
-        print(f"base_input_dir is {base_input_dir}")
-        print(f"output_dir is {output_dir}")
-        print(f"snapshot_dir is {snapshot_dir}")
-        print(f"today is {today}")
+        print(json.dumps(parameters, indent=4, sort_keys=True, default=str))
 
         with suppress(FileExistsError):
-            os.makedirs(base_input_dir)
+            os.makedirs(parameters["base_input_dir"])
         with suppress(FileExistsError):
-            os.makedirs(output_dir)
+            os.makedirs(parameters["output_dir"])
         with suppress(FileExistsError):
-            os.makedirs(snapshot_dir)
+            os.makedirs(parameters["snapshot_dir"])
 
-        return base_input_dir, output_dir, snapshot_dir, today
+        to_return = [
+            parameters["base_input_dir"], 
+            parameters["output_dir"], 
+            parameters["snapshot_dir"], 
+            parameters["today"]
+        ]
+
+        for variable in additional_params:
+            to_return.append(parameters[variable])
+            
+        return tuple(to_return)
+
+    def load_config_json(config_vars):
+        config_json=f"{ROOT_DIR}/config.json"
+
+        keys = config_vars.keys()
+
+        if not path.exists(config_json):
+            config_json=f"{snapshot_dir}/config.json"
+
+        if path.exists(config_json):
+            print(f"config.json found at location {config_json}.")
+            with open(config_json) as f:
+                config_json_data = json.load(f)  
+
+            toReturn = []
+            for variable in keys:
+                if variable in config_json_data:
+                    toReturn.append(config_json_data[variable])
+                else:
+                    toReturn.append(config_vars[variable])
+        else:
+            print(f"config.json is not found.")
+
+        return tuple(toReturn)
+        
+
