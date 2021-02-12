@@ -733,10 +733,10 @@ class ETLUtils:
         # Establis config.json path.
         config_json=f"{ROOT_DIR}/config.json"
 
-        if not path.exists(config_json):
+        if not os.path.exists(config_json):
             config_json=f"{snapshot_dir}/config.json"
 
-        if not path.exists(config_json):
+        if not os.path.exists(config_json):
             config_json=None
 
         parameters['config_json'] = config_json
