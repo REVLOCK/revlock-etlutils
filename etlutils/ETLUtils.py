@@ -699,9 +699,9 @@ class ETLUtils:
             if date is not None and startDate < date < endDate:
                 diff = diff - 1
 
-        return diff;
+        return diff
 
-
+    @staticmethod
     def establish_directories(global_vars, additional_params = []):
 
         def get_var(var_name, default_value):
@@ -713,13 +713,14 @@ class ETLUtils:
             "base_input_dir": get_var("base_input_dir", f"{ROOT_DIR}/sync-output"),
             "output_dir": get_var("output_dir", f"{ROOT_DIR}/etl-output"),
             "snapshot_dir": get_var("snapshot_dir", f"{ROOT_DIR}/snapshots"),
+            "config_json": get_var("config_json", f"{ROOT_DIR}/config.json"),
             "today": get_var("today", None)
         } 
 
         if parameters["today"] is None:
             parameters["today"] = datetime.date.today()
         else:
-            parameters["today"] = datetime.datetime.strptime(today, '%Y%m%d')
+            parameters["today"] = datetime.datetime.strptime(parameters["today"], '%Y%m%d')
 
         print(json.dumps(parameters, indent=4, sort_keys=True, default=str))
 
@@ -731,7 +732,7 @@ class ETLUtils:
             os.makedirs(parameters["snapshot_dir"])
 
         # Establis config.json path.
-        config_json=f"{ROOT_DIR}/config.json"
+        config_json=parameters["config_json"]
 
         if not os.path.exists(config_json):
             config_json=f"{parameters['snapshot_dir']}/config.json"
@@ -753,6 +754,7 @@ class ETLUtils:
             
         return tuple(to_return)
 
+    @staticmethod
     def load_config_json(config_json, config_vars):
 
         if config_json is None:
@@ -771,4 +773,136 @@ class ETLUtils:
 
         return tuple(toReturn)
         
+    @staticmethod
+    def ensure_same_dtypes(source, target):
+        for column in source.columns:
+            target[column]=target[column].astype(source[column].dtypes.name)
+            
+        return target
 
+    # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
+    @staticmethod
+    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key):
+        
+        changed_data = None
+        unchanged_data = None
+
+        # Load data from prior run.
+        prior_df = ETLUtils.get_snapshot(snapshot_dir, stream)
+        
+        # If there is no Prior data return new data.
+        if prior_df is None:
+            # Persist new data so it can be used to determine diff in next run
+            ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, new_df, True, True)
+            return new_df
+        
+        # Preserve original list of columns
+        columns_df = new_df.columns.tolist()
+
+        # Get IDs for all groups
+        all_group_ids = new_df[group_key].drop_duplicates()
+
+        ## -- START - Step (1) Select from prior snapshot which does not exist in new stapshot -- ##
+        no_change_prior_df = prior_df = pd.merge(
+            left=prior_df,
+            right=all_group_ids,
+            on=group_key,
+            how='outer',
+            indicator=True
+        )
+
+        # These order have no change from prior month
+        no_change_prior_df = no_change_prior_df[no_change_prior_df['_merge'] == 'left_only'].drop(columns='_merge')
+
+        # add to unchanged data
+        if not no_change_prior_df.empty:
+            unchanged_data = pd.concat([unchanged_data, no_change_prior_df])
+        ## -- END - Step (1) - Select from prior snapshot which does not exist in new stapshot -- ##
+
+        ## -- START - Step (2) - Now let find groups where group item count is different either in prior or new -- ##
+        df1 = pd.merge(
+            left=new_df,
+            right=prior_df[prior_df['_merge'] == 'both'].drop(columns='_merge'),
+            on=unique_key,
+            how='outer',
+            indicator=True
+        )
+
+        # These orders were changed such that number of records where different.
+        changed_orders = df1[df1['_merge'] != 'both'][group_key].drop_duplicates()
+        changed_orders_df = pd.merge(
+            left=new_df,
+            right=changed_orders,
+            on=group_key,
+            how='inner'
+        )
+
+        if not changed_orders_df.empty:
+            changed_data = pd.concat([changed_data, changed_orders_df], sort=False)
+        ## -- END - Step (2) - Now let find groups where group item count is different either in prior or new -- ##
+
+        ## -- START - Step (2) - Now lets create dataframe for remaining and find if something changed.
+        remaining_df = pd.merge(
+            left=new_df,
+            right=changed_orders,
+            on=group_key,
+            indicator=True,
+            how='left'
+        )
+
+        # For order that are already esblised to have chaged are removed from changed_orders.
+        remaining_orders = remaining_df[remaining_df['_merge'] == 'left_only'][group_key].drop_duplicates()
+
+        # If there is atleast one remaining
+        if not remaining_orders.empty:
+            # Select all remaining from prior_df
+            prior_df_2 = pd.merge(
+                left=prior_df[columns_df],
+                right=remaining_orders,
+                on=group_key,
+                how='inner'
+            )
+
+            # Select all remaining from new_df
+            new_df_2 = pd.merge(
+                left=new_df[columns_df],
+                right=remaining_orders,
+                on=group_key,
+                how='inner'
+            )
+            
+            # Make sure there data types for all columns are same between two dataframes.
+            # The reason we do this is becuase when data is saved to CSV and loaded back again, panda sometime changes the datatypes.
+            prior_df_2 = ensure_same_dtypes(new_df_2, prior_df_2)
+
+            # Sort and group records by group key for prior df.
+            prior_df_2 = prior_df_2.sort_values(unique_key)
+            prior_grouped = prior_df_2.groupby(group_key)
+
+            # Sort and group records by group key for new df.
+            new_df_2 = new_df_2.sort_values(unique_key)
+            new_grouped = new_df_2.groupby(group_key)
+
+            for name, new_group in new_grouped:
+                new_group = new_group.reset_index(drop=True)
+                prior_group = prior_grouped.get_group(name).reset_index(drop=True)
+
+                # if new doesnot equal old, add it to changed data.
+                if not new_group.equals(prior_group):
+                    changed_data = pd.concat([changed_data, new_group])
+                else:
+                    unchanged_data = pd.concat([unchanged_data, new_group])
+                    
+        # If there is no change return nothing.
+        if (not isinstance(changed_data, pd.DataFrame)) and changed_data == None:
+            return None
+        
+        # If there is no change return nothing.
+        if isinstance(changed_data, pd.DataFrame) and changed_data.empty:
+            return None
+
+        # Preserve full data so that it can be used to compare in the next run.
+        full_data = pd.concat([changed_data, unchanged_data])
+        ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, full_data.loc[:, columns_df], True, True)
+
+        return changed_data
