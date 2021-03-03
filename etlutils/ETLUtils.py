@@ -547,6 +547,8 @@ class ETLUtils:
             psnap_df = ETLUtils.get_snapshot(snapshot_dir, stream, column_mapping)
 
             if psnap_df is not None:
+                if column_mapping is None:
+                    ETLUtils.fix_ids(psnap_df, key)
                 # Combine with prior snapshot
                 snap_df = snap_df.set_index(
                     key).combine_first(psnap_df.set_index(key))
@@ -776,26 +778,41 @@ class ETLUtils:
     @staticmethod
     def ensure_same_dtypes(source, target):
         for column in source.columns:
-            target[column]=target[column].astype(source[column].dtypes.name)
+            dtype = source[column].dtypes.name
+            if dtype == 'object':
+                target[column]=target[column].astype(str)
+            else:
+                target[column] = target[column].astype(dtype)
             
         return target
+
+    def fix_ids(df, columns):
+        for column_name in columns:
+            if column_name not in df:
+                continue
+            df.loc[:, column_name] = df[column_name].fillna("").astype(str).str.replace("\.0$", "")
 
     # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
     @staticmethod
     def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key):
-        
+        new_df = ETLUtils.format_dates(new_df)
+
         changed_data = None
         unchanged_data = None
 
         # Load data from prior run.
         prior_df = ETLUtils.get_snapshot(snapshot_dir, stream)
-        
+        ETLUtils.fix_ids(new_df, unique_key)
+
         # If there is no Prior data return new data.
         if prior_df is None:
             # Persist new data so it can be used to determine diff in next run
+            new_df = ETLUtils.ensure_same_dtypes(new_df, new_df)
             ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, new_df, True, True)
             return new_df
-        
+
+        prior_df = ETLUtils.ensure_same_dtypes(new_df, prior_df)
+
         # Preserve original list of columns
         columns_df = new_df.columns.tolist()
 
@@ -803,7 +820,7 @@ class ETLUtils:
         all_group_ids = new_df[group_key].drop_duplicates()
 
         ## -- START - Step (1) Select from prior snapshot which does not exist in new stapshot -- ##
-        no_change_prior_df = prior_df = pd.merge(
+        marked_prior_df = pd.merge(
             left=prior_df,
             right=all_group_ids,
             on=group_key,
@@ -811,8 +828,10 @@ class ETLUtils:
             indicator=True
         )
 
+        marked_prior_df = ETLUtils.ensure_same_dtypes(new_df, marked_prior_df)
+
         # These order have no change from prior month
-        no_change_prior_df = no_change_prior_df[no_change_prior_df['_merge'] == 'left_only'].drop(columns='_merge')
+        no_change_prior_df = marked_prior_df[marked_prior_df['_merge'] == 'left_only'].drop(columns='_merge')
 
         # add to unchanged data
         if not no_change_prior_df.empty:
@@ -822,7 +841,7 @@ class ETLUtils:
         ## -- START - Step (2) - Now let find groups where group item count is different either in prior or new -- ##
         df1 = pd.merge(
             left=new_df,
-            right=prior_df[prior_df['_merge'] == 'both'].drop(columns='_merge'),
+            right=marked_prior_df[marked_prior_df['_merge'] == 'both'].drop(columns='_merge'),
             on=unique_key,
             how='outer',
             indicator=True
@@ -873,7 +892,7 @@ class ETLUtils:
             
             # Make sure there data types for all columns are same between two dataframes.
             # The reason we do this is becuase when data is saved to CSV and loaded back again, panda sometime changes the datatypes.
-            prior_df_2 = ensure_same_dtypes(new_df_2, prior_df_2)
+            prior_df_2 = ETLUtils.ensure_same_dtypes(new_df_2, prior_df_2)
 
             # Sort and group records by group key for prior df.
             prior_df_2 = prior_df_2.sort_values(unique_key)
