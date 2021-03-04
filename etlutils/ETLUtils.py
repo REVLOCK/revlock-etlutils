@@ -549,6 +549,8 @@ class ETLUtils:
             if psnap_df is not None:
                 if column_mapping is None:
                     ETLUtils.fix_ids(psnap_df, key)
+                    ETLUtils.fix_ids(snap_df, key)
+
                 # Combine with prior snapshot
                 snap_df = snap_df.set_index(
                     key).combine_first(psnap_df.set_index(key))
