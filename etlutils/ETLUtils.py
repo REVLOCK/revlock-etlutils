@@ -796,7 +796,7 @@ class ETLUtils:
 
     # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
     @staticmethod
-    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key):
+    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns = []):
         new_df = ETLUtils.format_dates(new_df)
 
         changed_data = None
@@ -811,7 +811,7 @@ class ETLUtils:
             # Persist new data so it can be used to determine diff in next run
             new_df = ETLUtils.ensure_same_dtypes(new_df, new_df)
             ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, new_df, True, True)
-            return new_df
+            return (new_df, new_df)
 
         prior_df = ETLUtils.ensure_same_dtypes(new_df, prior_df)
 
@@ -904,26 +904,29 @@ class ETLUtils:
             new_df_2 = new_df_2.sort_values(unique_key)
             new_grouped = new_df_2.groupby(group_key)
 
+            comp_columns = [column for column in columns_df if column not in ignore_columns]
+
             for name, new_group in new_grouped:
                 new_group = new_group.reset_index(drop=True)
                 prior_group = prior_grouped.get_group(name).reset_index(drop=True)
 
                 # if new doesnot equal old, add it to changed data.
-                if not new_group.equals(prior_group):
+                if not new_group[comp_columns].equals(prior_group[comp_columns]):
                     changed_data = pd.concat([changed_data, new_group])
                 else:
                     unchanged_data = pd.concat([unchanged_data, new_group])
                     
         # If there is no change return nothing.
         if (not isinstance(changed_data, pd.DataFrame)) and changed_data == None:
-            return None
+            return (None, prior_df)
         
         # If there is no change return nothing.
         if isinstance(changed_data, pd.DataFrame) and changed_data.empty:
-            return None
+            return (None, prior_df)
 
         # Preserve full data so that it can be used to compare in the next run.
         full_data = pd.concat([changed_data, unchanged_data])
-        ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, full_data.loc[:, columns_df], True, True)
+        full_data = full_data.loc[:, columns_df]
+        ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, full_data, True, True)
 
-        return changed_data
+        return (changed_data, full_data)
