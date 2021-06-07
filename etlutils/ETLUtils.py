@@ -75,7 +75,7 @@ class ETLUtils:
         if isDirectory:
             for entry in os.listdir(path):
                 if (os.path.isfile(os.path.join(path, entry)) and not entry.startswith('~$') and (
-                    entry.endswith('.xlsx') or entry.endswith('.xls'))):
+                        entry.endswith('.xlsx') or entry.endswith('.xls'))):
                     files.append(os.path.join(path, entry))
         else:
             files.append(path)
@@ -706,12 +706,12 @@ class ETLUtils:
         return diff
 
     @staticmethod
-    def establish_directories(global_vars, additional_params = []):
+    def establish_directories(global_vars, additional_params=[]):
 
         def get_var(var_name, default_value):
             return os.getenv(var_name, global_vars.get(var_name, default_value))
 
-        ROOT_DIR=get_var("ROOT_DIR", "/home/etl")
+        ROOT_DIR = get_var("ROOT_DIR", "/home/etl")
         parameters = {
             "ROOT_DIR": ROOT_DIR,
             "base_input_dir": get_var("base_input_dir", f"{ROOT_DIR}/sync-output"),
@@ -719,7 +719,7 @@ class ETLUtils:
             "snapshot_dir": get_var("snapshot_dir", f"{ROOT_DIR}/snapshots"),
             "config_json": get_var("config_json", f"{ROOT_DIR}/config.json"),
             "today": get_var("today", None)
-        } 
+        }
 
         if parameters["today"] is None:
             parameters["today"] = datetime.date.today()
@@ -736,26 +736,26 @@ class ETLUtils:
             os.makedirs(parameters["snapshot_dir"])
 
         # Establis config.json path.
-        config_json=parameters["config_json"]
+        config_json = parameters["config_json"]
 
         if not os.path.exists(config_json):
-            config_json=f"{parameters['snapshot_dir']}/config.json"
+            config_json = f"{parameters['snapshot_dir']}/config.json"
 
         if not os.path.exists(config_json):
-            config_json=None
+            config_json = None
 
         parameters['config_json'] = config_json
 
         to_return = [
-            parameters["base_input_dir"], 
-            parameters["output_dir"], 
-            parameters["snapshot_dir"], 
+            parameters["base_input_dir"],
+            parameters["output_dir"],
+            parameters["snapshot_dir"],
             parameters["today"]
         ]
 
         for variable in additional_params:
             to_return.append(parameters[variable])
-            
+
         return tuple(to_return)
 
     @staticmethod
@@ -766,7 +766,7 @@ class ETLUtils:
 
         print(f"Loading config.json file from {config_json}.")
         with open(config_json) as f:
-            config_json_data = json.load(f)  
+            config_json_data = json.load(f)
 
         toReturn = []
         for variable in config_vars.keys():
@@ -776,16 +776,16 @@ class ETLUtils:
                 toReturn.append(config_vars[variable])
 
         return tuple(toReturn)
-        
+
     @staticmethod
     def ensure_same_dtypes(source, target):
         for column in source.columns:
             dtype = source[column].dtypes.name
             if dtype == 'object':
-                target[column]=target[column].astype(str)
+                target[column] = target[column].astype(str)
             else:
                 target[column] = target[column].astype(dtype)
-            
+
         return target
 
     def fix_ids(df, columns):
@@ -796,7 +796,9 @@ class ETLUtils:
 
     # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
     @staticmethod
-    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns = []):
+    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[]):
+        checkpoint = datetime.datetime.utcnow()
+
         new_df = ETLUtils.format_dates(new_df)
 
         changed_data = None
@@ -826,7 +828,7 @@ class ETLUtils:
             left=prior_df,
             right=all_group_ids,
             on=group_key,
-            how='outer',
+             how='outer',
             indicator=True
         )
 
@@ -839,6 +841,9 @@ class ETLUtils:
         if not no_change_prior_df.empty:
             unchanged_data = pd.concat([unchanged_data, no_change_prior_df])
         ## -- END - Step (1) - Select from prior snapshot which does not exist in new stapshot -- ##
+
+        print(f"Get updates [{stream}] | Step  1 | Select from prior snapshot which does not exist in new stapshot | time {datetime.datetime.utcnow() - checkpoint}")
+        checkpoint = datetime.datetime.utcnow()
 
         ## -- START - Step (2) - Now let find groups where group item count is different either in prior or new -- ##
         df1 = pd.merge(
@@ -861,6 +866,9 @@ class ETLUtils:
         if not changed_orders_df.empty:
             changed_data = pd.concat([changed_data, changed_orders_df], sort=False)
         ## -- END - Step (2) - Now let find groups where group item count is different either in prior or new -- ##
+
+        print(f"Get updates [{stream}] | Step  2 | Now let find groups where group item count is different either in prior or new | time {datetime.datetime.utcnow() - checkpoint}")
+        checkpoint = datetime.datetime.utcnow()
 
         ## -- START - Step (2) - Now lets create dataframe for remaining and find if something changed.
         remaining_df = pd.merge(
@@ -891,7 +899,7 @@ class ETLUtils:
                 on=group_key,
                 how='inner'
             )
-            
+
             # Make sure there data types for all columns are same between two dataframes.
             # The reason we do this is becuase when data is saved to CSV and loaded back again, panda sometime changes the datatypes.
             prior_df_2 = ETLUtils.ensure_same_dtypes(new_df_2, prior_df_2)
@@ -906,20 +914,33 @@ class ETLUtils:
 
             comp_columns = [column for column in columns_df if column not in ignore_columns]
 
-            for name, new_group in new_grouped:
-                new_group = new_group.reset_index(drop=True)
-                prior_group = prior_grouped.get_group(name).reset_index(drop=True)
+            n = new_df_2[comp_columns].reset_index(drop=True)
+            p = prior_df_2[comp_columns].reset_index(drop=True)
 
-                # if new doesnot equal old, add it to changed data.
-                if not new_group[comp_columns].equals(prior_group[comp_columns]):
-                    changed_data = pd.concat([changed_data, new_group])
-                else:
-                    unchanged_data = pd.concat([unchanged_data, new_group])
-                    
+            n['has_changed'] = ((n != p) & ~(n.isnull() & p.isnull())).any(1)
+            changed_order_numbers = n[n['has_changed']][group_key].drop_duplicates()
+
+            final_diff = pd.merge(
+                left=new_df_2,
+                right=changed_order_numbers,
+                on=group_key,
+                how='left',
+                indicator=True
+            )
+
+            unchanged = final_diff[final_diff['_merge'] == 'left_only'].drop(columns='_merge')
+            changed = final_diff[final_diff['_merge'] == 'both'].drop(columns='_merge')
+
+            changed_data = pd.concat([changed_data, changed])
+            unchanged_data = pd.concat([unchanged_data, unchanged])
+
+        print(f"Get updates [{stream}] | Step  3 | Process remaining population to find changes | time {datetime.datetime.utcnow() - checkpoint}")
+        checkpoint = datetime.datetime.utcnow()
+
         # If there is no change return nothing.
         if (not isinstance(changed_data, pd.DataFrame)) and changed_data == None:
             return (None, prior_df)
-        
+
         # If there is no change return nothing.
         if isinstance(changed_data, pd.DataFrame) and changed_data.empty:
             return (None, prior_df)
@@ -928,5 +949,7 @@ class ETLUtils:
         full_data = pd.concat([changed_data, unchanged_data])
         full_data = full_data.loc[:, columns_df]
         ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, full_data, True, True)
+
+        print(f"Get updates [{stream}] | Step  4 | Update snapshot to next job | time {datetime.datetime.utcnow() - checkpoint}")
 
         return (changed_data, full_data)
