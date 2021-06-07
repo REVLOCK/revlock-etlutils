@@ -906,33 +906,37 @@ class ETLUtils:
 
             # Sort and group records by group key for prior df.
             prior_df_2 = prior_df_2.sort_values(unique_key)
-            prior_grouped = prior_df_2.groupby(group_key)
 
             # Sort and group records by group key for new df.
             new_df_2 = new_df_2.sort_values(unique_key)
-            new_grouped = new_df_2.groupby(group_key)
 
             comp_columns = [column for column in columns_df if column not in ignore_columns]
 
             n = new_df_2[comp_columns].reset_index(drop=True)
             p = prior_df_2[comp_columns].reset_index(drop=True)
 
+            # need to account for np.nan != np.nan returning True hence the expression after "$"     below
             n['has_changed'] = ((n != p) & ~(n.isnull() & p.isnull())).any(1)
-            changed_order_numbers = n[n['has_changed']][group_key].drop_duplicates()
+
+            # Get all groups which have changed.
+            changed_groups = n[n['has_changed']][group_key].drop_duplicates()
 
             final_diff = pd.merge(
                 left=new_df_2,
-                right=changed_order_numbers,
+                right=changed_groups,
                 on=group_key,
                 how='left',
                 indicator=True
             )
 
+            # Any thing that is not changes i.e. left only.
             unchanged = final_diff[final_diff['_merge'] == 'left_only'].drop(columns='_merge')
-            changed = final_diff[final_diff['_merge'] == 'both'].drop(columns='_merge')
-
-            changed_data = pd.concat([changed_data, changed])
             unchanged_data = pd.concat([unchanged_data, unchanged])
+
+            # All that has changed..
+            changed = final_diff[final_diff['_merge'] == 'both'].drop(columns='_merge')
+            changed_data = pd.concat([changed_data, changed])
+
 
         print(f"Get updates [{stream}] | Step  3 | Process remaining population to find changes | time {datetime.datetime.utcnow() - checkpoint}")
         checkpoint = datetime.datetime.utcnow()
