@@ -828,10 +828,11 @@ class ETLUtils:
             left=prior_df,
             right=all_group_ids,
             on=group_key,
-             how='outer',
+            how='outer',
             indicator=True
         )
 
+        marked_prior_df = marked_prior_df[marked_prior_df['_merge'] != 'right_only']
         marked_prior_df = ETLUtils.ensure_same_dtypes(new_df, marked_prior_df)
 
         # These order have no change from prior month
