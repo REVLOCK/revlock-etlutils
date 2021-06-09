@@ -770,7 +770,7 @@ class ETLUtils:
 
         toReturn = []
         for variable in config_vars.keys():
-            if variable in config_json_data:
+            if variable in config_json_data and config_json_data[variable] != "":
                 toReturn.append(config_json_data[variable])
             else:
                 toReturn.append(config_vars[variable])
