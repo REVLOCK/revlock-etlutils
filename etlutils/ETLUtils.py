@@ -782,7 +782,7 @@ class ETLUtils:
         for column in source.columns:
             dtype = source[column].dtypes.name
             if dtype == 'object':
-                target[column] = target[column].astype(str)
+                target[column] = target[column].astype(str, skipna=True)
             else:
                 target[column] = target[column].astype(dtype)
 
