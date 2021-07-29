@@ -551,9 +551,11 @@ class ETLUtils:
                     ETLUtils.fix_ids(psnap_df, key)
                     ETLUtils.fix_ids(snap_df, key)
 
-                # Combine with prior snapshot
-                snap_df = snap_df.set_index(
-                    key).combine_first(psnap_df.set_index(key))
+                psnap_df = psnap_df.set_index(key)
+                snap_df = snap_df.set_index(key)
+
+                snap_df = pd.concat([psnap_df[~psnap_df.index.isin(snap_df.index)], snap_df])
+
                 snap_df = snap_df.reset_index()
         if drop_column is not None:
             snap_df = snap_df.drop(columns=drop_column, errors='ignore')
