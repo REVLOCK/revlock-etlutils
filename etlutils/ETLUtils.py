@@ -784,7 +784,7 @@ class ETLUtils:
         for column in source.columns:
             dtype = source[column].dtypes.name
             if dtype == 'object':
-                target[column] = target[column].astype(str, skipna=True)
+                target[column] = target[column].where(target[column].isna(), target[column].astype(str))
             else:
                 target[column] = target[column].astype(dtype)
 
