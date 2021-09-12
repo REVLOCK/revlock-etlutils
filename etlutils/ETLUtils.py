@@ -782,6 +782,9 @@ class ETLUtils:
     @staticmethod
     def ensure_same_dtypes(source, target):
         for column in source.columns:
+            if column not in target:
+                target[column] = np.NaN
+
             dtype = source[column].dtypes.name
             if dtype == 'object':
                 target[column] = target[column].where(target[column].isna(), target[column].astype(str))
