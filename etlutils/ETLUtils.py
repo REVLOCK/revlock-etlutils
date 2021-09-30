@@ -786,10 +786,15 @@ class ETLUtils:
                 target[column] = np.NaN
 
             dtype = source[column].dtypes.name
-            if dtype == 'object':
-                target[column] = target[column].where(target[column].isna(), target[column].astype(str))
+            target_dtype = source[column].dtypes.name
+
+            if source[column].isnull().all():
+                source[column] = source[column].astype(target_dtype)
             else:
-                target[column] = target[column].astype(dtype)
+                if dtype == 'object':
+                    target[column] = target[column].where(target[column].isna(), target[column].astype(str))
+                else:
+                    target[column] = target[column].astype(dtype)
 
         return target
 
