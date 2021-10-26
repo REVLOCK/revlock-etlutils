@@ -785,16 +785,20 @@ class ETLUtils:
             if column not in target:
                 target[column] = np.NaN
 
-            dtype = source[column].dtypes.name
-            target_dtype = source[column].dtypes.name
+            source_dtype = source[column].dtypes.name
+            target_dtype = target[column].dtypes.name
 
             if source[column].isnull().all():
                 source[column] = source[column].astype(target_dtype)
             else:
-                if dtype == 'object':
+                if source_dtype == 'object':
                     target[column] = target[column].where(target[column].isna(), target[column].astype(str))
                 else:
-                    target[column] = target[column].astype(dtype)
+                    # If target or source is float.
+                    if source_dtype == 'float64' or target_dtype == 'float64':
+                        source_dtype = 'float64'
+
+                    target[column] = target[column].astype(source_dtype)
 
         return target
 
