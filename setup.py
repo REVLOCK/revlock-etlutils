@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='etlutils',
-    version='1.0.13',
+    version='1.0.14',
     description='Utility class containing util functions for ETL',
     url='',
     author='Irfan Zulfiqar',
