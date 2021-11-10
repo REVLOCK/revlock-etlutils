@@ -576,7 +576,7 @@ class ETLUtils:
 
     @staticmethod
     def convertToDate(df, column_name):
-        return pd.to_datetime(df[column_name]).dt.tz_localize(None)
+        return pd.to_datetime(df[column_name], utc=True).dt.tz_localize(None)
 
     @staticmethod
     def convertToNumber(df, column_name):
