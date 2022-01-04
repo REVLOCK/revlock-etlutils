@@ -810,7 +810,7 @@ class ETLUtils:
 
     # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
     @staticmethod
-    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[]):
+    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[], fillna_values=None):
         checkpoint = datetime.datetime.utcnow()
 
         new_df = ETLUtils.format_dates(new_df)
@@ -830,6 +830,9 @@ class ETLUtils:
             return (new_df, new_df)
 
         prior_df = ETLUtils.ensure_same_dtypes(new_df, prior_df)
+
+        if fillna_values is not None:
+            prior_df = prior_df.fillna(value=fillna_values)
 
         # Preserve original list of columns
         columns_df = new_df.columns.tolist()
