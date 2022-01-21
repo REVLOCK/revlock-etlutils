@@ -813,6 +813,8 @@ class ETLUtils:
     def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[], fillna_values=None):
         checkpoint = datetime.datetime.utcnow()
 
+        new_df = new_df.drop_duplicates(subset=unique_key, keep='first')
+
         new_df = ETLUtils.format_dates(new_df)
 
         changed_data = None
