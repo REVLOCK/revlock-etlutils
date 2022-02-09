@@ -810,7 +810,7 @@ class ETLUtils:
 
     # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
     @staticmethod
-    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[], fillna_values=None):
+    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[], fillna_values=None, id_columns=None):
         checkpoint = datetime.datetime.utcnow()
 
         new_df = new_df.drop_duplicates(subset=unique_key, keep='first')
@@ -822,7 +822,7 @@ class ETLUtils:
 
         # Load data from prior run.
         prior_df = ETLUtils.get_snapshot(snapshot_dir, stream)
-        ETLUtils.fix_ids(new_df, unique_key)
+        ETLUtils.fix_ids(new_df, unique_key if id_columns is None else id_columns)
 
         # If there is no Prior data return new data.
         if prior_df is None:
