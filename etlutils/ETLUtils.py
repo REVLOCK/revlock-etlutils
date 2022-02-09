@@ -826,6 +826,9 @@ class ETLUtils:
 
         # If there is no Prior data return new data.
         if prior_df is None:
+            # fix Ids
+            ETLUtils.fix_ids(prior_df, unique_key if id_columns is None else id_columns)
+
             # Persist new data so it can be used to determine diff in next run
             new_df = ETLUtils.ensure_same_dtypes(new_df, new_df)
             ETLUtils.update_snapshot(snapshot_dir, stream, unique_key, new_df, True, True)
