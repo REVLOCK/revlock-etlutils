@@ -770,7 +770,7 @@ class ETLUtils:
         with open(config_json) as f:
             config_json_data = json.load(f)
 
-        return load_config_json_data(config_json_data, config_vars)
+        return ETLUtils.load_config_json_data(config_json_data, config_vars)
 
     @staticmethod
     def load_config_json_data(config_json_data, config_vars):
