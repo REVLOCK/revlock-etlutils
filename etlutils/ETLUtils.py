@@ -802,6 +802,10 @@ class ETLUtils:
                 if source_dtype == 'object':
                     target[column] = target[column].where(target[column].isna(), target[column].astype(str))
                 else:
+                    # If target is float and source is not float.
+                    if target_dtype == 'float64' and source_dtype != 'float64'
+                        source[column] = source[column].astype('float64')
+
                     # If target or source is float.
                     if source_dtype == 'float64' or target_dtype == 'float64':
                         source_dtype = 'float64'
