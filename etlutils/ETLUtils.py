@@ -748,6 +748,8 @@ class ETLUtils:
 
         parameters['config_json'] = config_json
 
+        ETLUtils.stop_etl_if_snapshot_missing(parameters["snapshot_dir"])
+
         to_return = [
             parameters["base_input_dir"],
             parameters["output_dir"],
@@ -992,3 +994,23 @@ class ETLUtils:
         print(f"Get updates [{stream}] | Step  4 | Update snapshot to next job | time {datetime.datetime.utcnow() - checkpoint}")
 
         return (changed_data, full_data)
+
+    @staticmethod
+    def stop_etl_if_snapshot_missing(path):
+        is_test = os.getenv("IS_TEST", "FALSE")
+
+        if is_test == "FALSE" and ETLUtils.is_empty_dir(path):
+            print(f"Snapshot folder is missing. Stopped processing ETL....")
+            exit()
+
+    @staticmethod
+    def is_empty_dir(path):
+
+        # Getting the list of directories
+        dir = os.listdir(path)
+
+        # Checking if the list is empty or not
+        if len(dir) == 0:
+            return True
+
+        return False
