@@ -1001,7 +1001,7 @@ class ETLUtils:
 
         if is_test == "FALSE" and ETLUtils.is_empty_dir(path):
             print(f"Snapshot folder is missing. Stopped processing ETL....")
-            exit()
+            raise RuntimeError()
 
     @staticmethod
     def is_empty_dir(path):
