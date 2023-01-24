@@ -618,6 +618,16 @@ class ETLUtils:
             return target_df[list(column_mapping.keys()) + ['Sync Source']]
 
     @staticmethod
+    def fix_precision(df, precision_column, precision):
+        target_df = df
+
+        for target_column in precision_column:
+            if target_column in target_df:
+                target_df[target_column] = target_df[target_column].round(precision)
+
+        return target_df
+
+    @staticmethod
     def create_target_dataframe(df, column_mapping):
         target_df = df.copy(deep=True)
 
@@ -748,7 +758,7 @@ class ETLUtils:
 
         parameters['config_json'] = config_json
 
-        ETLUtils.stop_etl_if_snapshot_missing(parameters["snapshot_dir"])
+        # ETLUtils.stop_etl_if_snapshot_missing(parameters["snapshot_dir"])
 
         to_return = [
             parameters["base_input_dir"],
@@ -804,10 +814,6 @@ class ETLUtils:
                 if source_dtype == 'object':
                     target[column] = target[column].where(target[column].isna(), target[column].astype(str))
                 else:
-                    # If target is float and source is not float.
-                    if target_dtype == 'float64' and source_dtype != 'float64':
-                        source[column] = source[column].astype('float64')
-
                     # If target or source is float.
                     if source_dtype == 'float64' or target_dtype == 'float64':
                         source_dtype = 'float64'
@@ -824,7 +830,7 @@ class ETLUtils:
 
     # Compares the input new dataframe with an existing dataframe and returns data that have atleast one change.
     @staticmethod
-    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[], fillna_values=None, id_columns=None):
+    def get_data_with_changes(stream, new_df, snapshot_dir, group_key, unique_key, ignore_columns=[], fillna_values=None, id_columns=None, precision_columns=None, precision=2):
         checkpoint = datetime.datetime.utcnow()
 
         new_df = new_df.drop_duplicates(subset=unique_key, keep='first')
@@ -847,6 +853,10 @@ class ETLUtils:
         else:
             # fix Ids
             ETLUtils.fix_ids(prior_df, unique_key if id_columns is None else id_columns)
+
+            # fix precision on prior data
+            if precision_columns is not None:
+                prior_df = ETLUtils.fix_precision(prior_df, precision_columns, precision)
 
         prior_df = ETLUtils.ensure_same_dtypes(new_df, prior_df)
 
