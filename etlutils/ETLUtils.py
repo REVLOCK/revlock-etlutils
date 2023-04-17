@@ -728,7 +728,7 @@ class ETLUtils:
             "ROOT_DIR": ROOT_DIR,
             "base_input_dir": get_var("base_input_dir", f"{ROOT_DIR}/sync-output"),
             "output_dir": get_var("output_dir", f"{ROOT_DIR}/etl-output"),
-            "snapshot_dir": get_var("snapshot_dir", f"{ROOT_DIR}/snapshots" if tap_name is None else f"{ROOT_DIR}/{tap_name}/snapshots"),
+            "snapshot_dir": get_var("snapshot_dir", f"{ROOT_DIR}/snapshots" if tap_name is None else f"{ROOT_DIR}/snapshots/{tap_name}"),
             "config_json": get_var("config_json", f"{ROOT_DIR}/config.json"),
             "today": get_var("today", None)
         }
